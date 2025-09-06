@@ -63,6 +63,8 @@ export const AuthProvider = ({ children }) => {
     }
   );
 
+  // console.log('AuthContext - token:', state.token, 'userData:', userData, 'userLoading:', userLoading);
+
   useEffect(() => {
     if (userData && !userLoading) {
       dispatch({
@@ -72,7 +74,8 @@ export const AuthProvider = ({ children }) => {
           token: state.token,
         },
       });
-    } else if (!userData && !userLoading && state.token) {
+    } else if (!userData && !userLoading) {
+      // If no user data and not loading, set as not authenticated
       dispatch({ type: 'LOGOUT' });
     }
   }, [userData, userLoading, state.token]);

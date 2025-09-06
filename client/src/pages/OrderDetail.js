@@ -2,13 +2,15 @@ import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { api } from '../utils/api';
-import { ArrowLeft, Edit, FileText, Calendar, DollarSign, Package, User } from 'lucide-react';
+import { ArrowLeft, Edit, FileText, Calendar, DollarSign, Package, User, Receipt } from 'lucide-react';
 import LoadingSpinner from '../components/LoadingSpinner';
+import InvoiceGenerator from '../components/InvoiceGenerator';
 import toast from 'react-hot-toast';
 
 const OrderDetail = () => {
   const { id } = useParams();
   const [activeTab, setActiveTab] = useState('overview');
+  const [showInvoice, setShowInvoice] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: order, isLoading } = useQuery(
@@ -41,6 +43,41 @@ const OrderDetail = () => {
     }
   };
 
+  const handlePrintInvoice = () => {
+    window.print();
+  };
+
+  const handleDownloadInvoice = () => {
+    // Generate PDF download
+    const element = document.getElementById('invoice-content');
+    if (element) {
+      const printWindow = window.open('', '_blank');
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Invoice - ${order?.orderNumber}</title>
+            <style>
+              body { font-family: Arial, sans-serif; margin: 20px; }
+              .invoice-header { border-bottom: 2px solid #000; padding-bottom: 20px; margin-bottom: 20px; }
+              .invoice-title { font-size: 24px; font-weight: bold; }
+              .invoice-details { display: flex; justify-content: space-between; }
+              .invoice-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+              .invoice-table th, .invoice-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+              .invoice-table th { background-color: #f2f2f2; }
+              .invoice-total { text-align: right; margin-top: 20px; }
+              .invoice-total .total { font-size: 18px; font-weight: bold; }
+            </style>
+          </head>
+          <body>
+            ${element.innerHTML}
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      printWindow.print();
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -70,6 +107,7 @@ const OrderDetail = () => {
     { id: 'overview', name: 'Overview' },
     { id: 'items', name: 'Order Items' },
     { id: 'customer', name: 'Customer Info' },
+    { id: 'invoice', name: 'Invoice' },
   ];
 
   const getStatusColor = (status) => {
@@ -457,6 +495,27 @@ const OrderDetail = () => {
                     )}
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'invoice' && (
+          <div className="card">
+            <div className="card-header">
+              <h3 className="card-title flex items-center">
+                <Receipt className="h-5 w-5 mr-2" />
+                Invoice
+              </h3>
+              <p className="card-description">Generate and print invoice for this order</p>
+            </div>
+            <div className="card-content">
+              <div id="invoice-content">
+                <InvoiceGenerator 
+                  order={order} 
+                  onPrint={handlePrintInvoice}
+                  onDownload={handleDownloadInvoice}
+                />
               </div>
             </div>
           </div>

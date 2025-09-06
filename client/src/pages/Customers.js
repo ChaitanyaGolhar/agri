@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { api } from '../utils/api';
-import { Plus, Search, Eye, Trash2, Users } from 'lucide-react';
+import { Plus, Search, Eye, Edit, Trash2, Users, RefreshCw } from 'lucide-react';
 import LoadingSpinner from '../components/LoadingSpinner';
 import toast from 'react-hot-toast';
 
@@ -12,7 +12,7 @@ const Customers = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const queryClient = useQueryClient();
 
-  const { data: customersData, isLoading } = useQuery(
+  const { data: customersData, isLoading, error, refetch } = useQuery(
     ['customers', currentPage, searchTerm, businessTypeFilter],
     () => api.get('/customers', {
       params: {
@@ -21,14 +21,21 @@ const Customers = () => {
         search: searchTerm,
         businessType: businessTypeFilter,
       }
-    }).then(res => res.data)
+    }).then(res => {
+      console.log('Customers API Response:', res.data);
+      return res.data;
+    }),
+    {
+      refetchOnWindowFocus: false,
+      staleTime: 30000, // 30 seconds
+    }
   );
 
   const deleteCustomerMutation = useMutation(
     (customerId) => api.delete(`/customers/${customerId}`),
     {
       onSuccess: () => {
-        queryClient.invalidateQueries('customers');
+        queryClient.invalidateQueries(['customers']);
         toast.success('Customer deactivated successfully');
       },
       onError: () => {
@@ -62,7 +69,15 @@ const Customers = () => {
             Manage your customer database
           </p>
         </div>
-        <div className="mt-4 sm:mt-0">
+        <div className="mt-4 sm:mt-0 flex space-x-3">
+          <button
+            onClick={() => refetch()}
+            className="btn btn-outline"
+            disabled={isLoading}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
           <Link
             to="/customers/new"
             className="btn btn-primary"
@@ -103,6 +118,32 @@ const Customers = () => {
               </select>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Debug Info */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-md p-4">
+          <div className="flex">
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-red-800">Error loading customers</h3>
+              <div className="mt-2 text-sm text-red-700">
+                <p>{error.message}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Debug Info */}
+      <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+        <div className="text-sm text-blue-700">
+          <p><strong>Debug Info:</strong></p>
+          <p>Loading: {isLoading ? 'Yes' : 'No'}</p>
+          <p>Error: {error ? error.message : 'None'}</p>
+          <p>Customers Data: {customersData ? 'Present' : 'Missing'}</p>
+          <p>Customers Count: {customersData?.customers?.length || 0}</p>
+          <p>Total: {customersData?.total || 0}</p>
         </div>
       </div>
 
@@ -180,12 +221,21 @@ const Customers = () => {
                             <Link
                               to={`/customers/${customer._id}`}
                               className="text-primary hover:text-primary/80"
+                              title="View Details"
                             >
                               <Eye className="h-4 w-4" />
+                            </Link>
+                            <Link
+                              to={`/customers/${customer._id}/edit`}
+                              className="text-blue-600 hover:text-blue-800"
+                              title="Edit Customer"
+                            >
+                              <Edit className="h-4 w-4" />
                             </Link>
                             <button
                               onClick={() => handleDelete(customer._id)}
                               className="text-red-600 hover:text-red-800"
+                              title="Delete Customer"
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>

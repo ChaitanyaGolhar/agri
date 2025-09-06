@@ -25,19 +25,19 @@ const Orders = () => {
     }).then(res => res.data)
   );
 
-  const updateStatusMutation = useMutation(
-    ({ orderId, orderStatus, paymentStatus }) =>
-      api.put(`/orders/${orderId}/status`, { orderStatus, paymentStatus }),
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries('orders');
-        toast.success('Order status updated successfully');
-      },
-      onError: () => {
-        toast.error('Failed to update order status');
-      },
-    }
-  );
+  // const updateStatusMutation = useMutation(
+  //   ({ orderId, orderStatus, paymentStatus }) =>
+  //     api.put(`/orders/${orderId}/status`, { orderStatus, paymentStatus }),
+  //   {
+  //     onSuccess: () => {
+  //       queryClient.invalidateQueries('orders');
+  //       toast.success('Order status updated successfully');
+  //     },
+  //     onError: () => {
+  //       toast.error('Failed to update order status');
+  //     },
+  //   }
+  // );
 
   const cancelOrderMutation = useMutation(
     (orderId) => api.delete(`/orders/${orderId}`),

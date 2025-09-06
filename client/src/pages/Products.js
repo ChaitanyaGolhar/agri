@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { api } from '../utils/api';
-import { Plus, Search, Eye, Trash2, Package, AlertTriangle } from 'lucide-react';
+import { Plus, Search, Eye, Edit, Trash2, Package, AlertTriangle } from 'lucide-react';
 import LoadingSpinner from '../components/LoadingSpinner';
 import toast from 'react-hot-toast';
 
@@ -181,12 +181,21 @@ const Products = () => {
                     <Link
                       to={`/products/${product._id}`}
                       className="text-gray-400 hover:text-primary"
+                      title="View Details"
                     >
                       <Eye className="h-4 w-4" />
+                    </Link>
+                    <Link
+                      to={`/products/${product._id}/edit`}
+                      className="text-gray-400 hover:text-blue-600"
+                      title="Edit Product"
+                    >
+                      <Edit className="h-4 w-4" />
                     </Link>
                     <button
                       onClick={() => handleDelete(product._id)}
                       className="text-gray-400 hover:text-red-600"
+                      title="Delete Product"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
