@@ -32,16 +32,16 @@ const MobileSidebar = ({ isOpen, onClose }) => {
       />
       
       {/* Sidebar */}
-      <div className="fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-xl">
+      <div className="fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-800 shadow-xl">
         <div className="flex h-full flex-col">
           {/* Header */}
-          <div className="flex h-16 items-center justify-between px-6 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">
+          <div className="flex h-16 items-center justify-between px-6 border-b border-gray-200 dark:border-gray-700">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
               AgriBusiness
             </h2>
             <button
               onClick={onClose}
-              className="p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100"
+              className="p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-300 dark:hover:text-gray-200"
             >
               <X className="h-6 w-6" />
             </button>
@@ -59,7 +59,7 @@ const MobileSidebar = ({ isOpen, onClose }) => {
                       `group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold transition-colors ${
                         isActive
                           ? 'bg-primary text-white'
-                          : 'text-gray-700 hover:text-primary hover:bg-gray-50'
+                          : 'text-gray-700 dark:text-gray-300 hover:text-primary hover:bg-gray-50 dark:hover:bg-gray-700'
                       }`
                     }
                   >
@@ -67,7 +67,7 @@ const MobileSidebar = ({ isOpen, onClose }) => {
                       className={`h-6 w-6 shrink-0 ${
                         window.location.pathname === item.href
                           ? 'text-white'
-                          : 'text-gray-400 group-hover:text-primary'
+                          : 'text-gray-400 dark:text-gray-500 group-hover:text-primary'
                       }`}
                       aria-hidden="true"
                     />

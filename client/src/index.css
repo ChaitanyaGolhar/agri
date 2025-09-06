@@ -47,7 +47,7 @@
   }
   
   .card {
-    @apply rounded-lg border bg-card text-card-foreground shadow-sm;
+    @apply rounded-lg border bg-card text-card-foreground shadow-sm dark:border-gray-700;
   }
   
   .card-header {

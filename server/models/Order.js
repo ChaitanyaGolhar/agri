@@ -26,8 +26,8 @@ const orderItemSchema = new mongoose.Schema({
 const orderSchema = new mongoose.Schema({
   orderNumber: {
     type: String,
-    required: true,
-    unique: true
+    unique: true,
+    sparse: true
   },
   customer: {
     type: mongoose.Schema.Types.ObjectId,
@@ -106,20 +106,30 @@ orderSchema.index({ createdAt: -1 });
 
 // Pre-save middleware to generate order number
 orderSchema.pre('save', async function(next) {
-  if (this.isNew && !this.orderNumber) {
-    const count = await this.constructor.countDocuments();
-    this.orderNumber = `ORD-${String(count + 1).padStart(6, '0')}`;
+  try {
+    if (this.isNew) {
+      if (!this.orderNumber) {
+        const count = await this.constructor.countDocuments();
+        this.orderNumber = `ORD-${String(count + 1).padStart(6, '0')}`;
+      }
+    }
+    next();
+  } catch (error) {
+    next(error);
   }
-  next();
 });
 
 // Pre-save middleware to generate invoice number
 orderSchema.pre('save', async function(next) {
-  if (this.isNew && this.orderStatus === 'Confirmed' && !this.invoiceNumber) {
-    const count = await this.constructor.countDocuments({ invoiceNumber: { $exists: true } });
-    this.invoiceNumber = `INV-${String(count + 1).padStart(6, '0')}`;
+  try {
+    if (this.isNew && this.orderStatus === 'Confirmed' && !this.invoiceNumber) {
+      const count = await this.constructor.countDocuments({ invoiceNumber: { $exists: true } });
+      this.invoiceNumber = `INV-${String(count + 1).padStart(6, '0')}`;
+    }
+    next();
+  } catch (error) {
+    next(error);
   }
-  next();
 });
 
 module.exports = mongoose.model('Order', orderSchema);

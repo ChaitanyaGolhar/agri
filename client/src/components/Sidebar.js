@@ -7,10 +7,15 @@ import {
   ShoppingCart,
   FileText,
   Settings,
-  BarChart3,
   AlertTriangle,
+  Sun,
+  Moon,
+  User,
 } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
 
+// --- No changes to the navigation data ---
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Customers', href: '/customers', icon: Users },
@@ -21,37 +26,46 @@ const navigation = [
 ];
 
 const Sidebar = () => {
+  const { user, logout } = useAuth();
+  const { theme, toggleTheme, isDark } = useTheme();
+
   return (
     <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-64 lg:flex-col">
-      <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-white border-r border-gray-200 px-6 pb-4">
+      <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-[#1C2434] px-6 pb-4">
+        
+        {/* --- MODIFIED: Header styled to match image's title --- */}
         <div className="flex h-16 shrink-0 items-center">
-          <h2 className="text-lg font-semibold text-gray-900">
+          <h2 className="text-2xl font-bold text-white">
             AgriBusiness
           </h2>
         </div>
         
         <nav className="flex flex-1 flex-col">
-          <ul className="flex flex-1 flex-col gap-y-7">
+          <ul role="list" className="flex flex-1 flex-col gap-y-7">
             <li>
-              <ul className="-mx-2 space-y-1">
+              <ul role="list" className="-mx-2 space-y-1">
                 {navigation.map((item) => (
                   <li key={item.name}>
                     <NavLink
                       to={item.href}
+                      // --- MODIFIED: ClassName logic for new active/inactive/hover styles ---
                       className={({ isActive }) =>
-                        `group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold transition-colors ${
+                        `group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-medium transition-colors ${
                           isActive
-                            ? 'bg-primary text-white'
-                            : 'text-gray-700 hover:text-primary hover:bg-gray-50'
+                            ? 'bg-gray-700/50 text-white' // Active link style
+                            : 'text-gray-400 hover:text-white hover:bg-gray-800/50' // Inactive link style
                         }`
                       }
                     >
                       <item.icon
-                        className={`h-6 w-6 shrink-0 ${
-                          window.location.pathname === item.href
-                            ? 'text-white'
-                            : 'text-gray-400 group-hover:text-primary'
-                        }`}
+                        // --- MODIFIED: Icon color logic to match ---
+                        className={({ isActive }) =>
+                          `h-6 w-6 shrink-0 ${
+                            isActive 
+                              ? 'text-white' 
+                              : 'text-gray-500 group-hover:text-white'
+                          }`
+                        }
                         aria-hidden="true"
                       />
                       {item.name}
@@ -61,20 +75,40 @@ const Sidebar = () => {
               </ul>
             </li>
             
-            {/* Low stock alert */}
+            {/* --- MODIFIED: Low stock alert styled for dark theme --- */}
             <li className="mt-auto">
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+              {/* <div className="bg-gray-800/60 border border-gray-700 rounded-lg p-3 mb-3">
                 <div className="flex items-center">
-                  <AlertTriangle className="h-5 w-5 text-yellow-600" />
+                  <AlertTriangle className="h-5 w-5 text-yellow-400" />
                   <div className="ml-3">
-                    <p className="text-sm font-medium text-yellow-800">
+                    <p className="text-sm font-medium text-yellow-200">
                       Low Stock Alert
                     </p>
-                    <p className="text-xs text-yellow-600">
+                    <p className="text-xs text-yellow-400">
                       5 products need restocking
                     </p>
                   </div>
                 </div>
+              </div> */}
+              {/* --- Theme toggle and logout buttons --- */}
+              <br></br>
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={toggleTheme}
+                  className="flex items-center gap-2 p-2 rounded-md text-gray-400 hover:text-gray-100 hover:bg-gray-700 dark:text-gray-300 dark:hover:text-white transition-colors"
+                  title={`Switch to ${isDark ? 'light' : 'dark'} mode`}
+                >
+                  {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+                  <span className="text-sm">{isDark ? 'Light Mode' : 'Dark Mode'}</span>
+                </button>
+                <button
+                  onClick={logout}
+                  className="flex items-center gap-2 p-2 rounded-md text-gray-400 hover:text-gray-100 hover:bg-gray-700 dark:text-gray-300 dark:hover:text-white transition-colors"
+                >
+                  <User className="h-5 w-5" />
+                  <span className="text-sm">Logout</span>
+                </button>
               </div>
             </li>
           </ul>

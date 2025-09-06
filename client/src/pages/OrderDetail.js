@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { api } from '../utils/api';
-import { ArrowLeft, Edit, FileText, Calendar, DollarSign, Package, User, Receipt } from 'lucide-react';
+import { ArrowLeft, Edit, FileText, Calendar, DollarSign, Package, User, Receipt, Printer, Download } from 'lucide-react';
 import LoadingSpinner from '../components/LoadingSpinner';
 import InvoiceGenerator from '../components/InvoiceGenerator';
+import { printReceipt, printReceiptToPDF } from '../utils/receiptPrinter';
 import toast from 'react-hot-toast';
 
 const OrderDetail = () => {
@@ -44,37 +45,25 @@ const OrderDetail = () => {
   };
 
   const handlePrintInvoice = () => {
-    window.print();
+    if (order) {
+      try {
+        printReceipt(order);
+      } catch (error) {
+        console.error('Error printing receipt:', error);
+        toast.error('Failed to print receipt: ' + error.message);
+      }
+    }
   };
 
   const handleDownloadInvoice = () => {
-    // Generate PDF download
-    const element = document.getElementById('invoice-content');
-    if (element) {
-      const printWindow = window.open('', '_blank');
-      printWindow.document.write(`
-        <html>
-          <head>
-            <title>Invoice - ${order?.orderNumber}</title>
-            <style>
-              body { font-family: Arial, sans-serif; margin: 20px; }
-              .invoice-header { border-bottom: 2px solid #000; padding-bottom: 20px; margin-bottom: 20px; }
-              .invoice-title { font-size: 24px; font-weight: bold; }
-              .invoice-details { display: flex; justify-content: space-between; }
-              .invoice-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-              .invoice-table th, .invoice-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-              .invoice-table th { background-color: #f2f2f2; }
-              .invoice-total { text-align: right; margin-top: 20px; }
-              .invoice-total .total { font-size: 18px; font-weight: bold; }
-            </style>
-          </head>
-          <body>
-            ${element.innerHTML}
-          </body>
-        </html>
-      `);
-      printWindow.document.close();
-      printWindow.print();
+    if (order) {
+      try {
+        const filename = printReceiptToPDF(order);
+        toast.success(`Receipt saved as ${filename}`);
+      } catch (error) {
+        console.error('Error generating PDF:', error);
+        toast.error('Failed to generate PDF: ' + error.message);
+      }
     }
   };
 
@@ -151,6 +140,20 @@ const OrderDetail = () => {
           </div>
         </div>
         <div className="flex items-center space-x-2">
+          <button 
+            onClick={handlePrintInvoice}
+            className="btn btn-outline"
+          >
+            <Printer className="h-4 w-4 mr-2" />
+            Print Receipt
+          </button>
+          <button 
+            onClick={handleDownloadInvoice}
+            className="btn btn-primary"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Download PDF
+          </button>
           <button className="btn btn-outline">
             <Edit className="h-4 w-4 mr-2" />
             Edit

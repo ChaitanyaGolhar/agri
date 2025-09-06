@@ -197,3 +197,6 @@ const InvoiceGenerator = ({ order, onPrint, onDownload }) => {
 };
 
 export default InvoiceGenerator;
+
+
+

@@ -99,14 +99,19 @@ router.post('/', [
   body('deliveryAddress').optional().isObject()
 ], async (req, res) => {
   try {
+    console.log('Order creation request received:', req.body);
+    
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.log('Validation errors:', errors.array());
       return res.status(400).json({ errors: errors.array() });
     }
 
     const { customer, items, paymentMethod = 'Cash', deliveryAddress, notes } = req.body;
+    console.log('Processing order for customer:', customer, 'with items:', items);
 
     // Verify customer exists
+    console.log('Looking for customer with ID:', customer, 'and createdBy:', req.user._id);
     const customerExists = await Customer.findOne({
       _id: customer,
       createdBy: req.user._id,
@@ -114,14 +119,17 @@ router.post('/', [
     });
 
     if (!customerExists) {
+      console.log('Customer not found or inactive');
       return res.status(400).json({ message: 'Customer not found or inactive' });
     }
+    console.log('Customer found:', customerExists.name);
 
     // Process items and calculate totals
     let subtotal = 0;
     const processedItems = [];
 
     for (const item of items) {
+      console.log('Processing item:', item);
       const product = await Product.findOne({
         _id: item.product,
         createdBy: req.user._id,
@@ -129,10 +137,14 @@ router.post('/', [
       });
 
       if (!product) {
+        console.log('Product not found:', item.product);
         return res.status(400).json({ message: `Product ${item.product} not found` });
       }
 
+      console.log('Product found:', product.name, 'Stock:', product.stockQuantity, 'Required:', item.quantity);
+
       if (product.stockQuantity < item.quantity) {
+        console.log('Insufficient stock for product:', product.name);
         return res.status(400).json({ 
           message: `Insufficient stock for ${product.name}. Available: ${product.stockQuantity}` 
         });
@@ -140,6 +152,7 @@ router.post('/', [
 
       const totalPrice = product.price * item.quantity;
       subtotal += totalPrice;
+      console.log('Item total price:', totalPrice, 'Running subtotal:', subtotal);
 
       processedItems.push({
         product: product._id,
@@ -153,8 +166,10 @@ router.post('/', [
     const discountAmount = 0; // Can be added later
     const totalAmount = subtotal + taxAmount - discountAmount;
 
+    console.log('Order totals - Subtotal:', subtotal, 'Tax:', taxAmount, 'Discount:', discountAmount, 'Total:', totalAmount);
+
     // Create order
-    const order = new Order({
+    const orderData = {
       customer,
       items: processedItems,
       subtotal,
@@ -165,9 +180,14 @@ router.post('/', [
       deliveryAddress: deliveryAddress || customerExists.address,
       notes,
       createdBy: req.user._id
-    });
+    };
+    
+    console.log('Creating order with data:', orderData);
+    const order = new Order(orderData);
 
+    console.log('Saving order...');
     await order.save();
+    console.log('Order saved successfully with ID:', order._id);
 
     // Update product stock
     for (const item of processedItems) {
@@ -197,7 +217,11 @@ router.post('/', [
     });
   } catch (error) {
     console.error('Create order error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ 
+      message: 'Server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
   }
 });
 
