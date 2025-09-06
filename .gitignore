@@ -1,0 +1,10 @@
+# Dependencies
+/node_modules
+client/node_modules
+
+# Environment variables
+.env
+
+# Optional: Add other common files to ignore
+.DS_Store
+npm-debug.log
