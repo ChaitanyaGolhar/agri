@@ -107,10 +107,30 @@ orderSchema.index({ createdAt: -1 });
 // Pre-save middleware to generate order number
 orderSchema.pre('save', async function(next) {
   try {
-    if (this.isNew) {
-      if (!this.orderNumber) {
+    if (this.isNew && !this.orderNumber) {
+      // Use a more robust approach to generate unique order numbers
+      let orderNumber;
+      let isUnique = false;
+      let attempts = 0;
+      const maxAttempts = 10;
+      
+      while (!isUnique && attempts < maxAttempts) {
         const count = await this.constructor.countDocuments();
-        this.orderNumber = `ORD-${String(count + 1).padStart(6, '0')}`;
+        const timestamp = Date.now().toString().slice(-4); // Last 4 digits of timestamp
+        orderNumber = `ORD-${String(count + 1).padStart(4, '0')}-${timestamp}`;
+        
+        // Check if this order number already exists
+        const existing = await this.constructor.findOne({ orderNumber });
+        if (!existing) {
+          isUnique = true;
+          this.orderNumber = orderNumber;
+        }
+        attempts++;
+      }
+      
+      if (!isUnique) {
+        // Fallback to timestamp-based number if all attempts fail
+        this.orderNumber = `ORD-${Date.now()}`;
       }
     }
     next();
@@ -123,8 +143,27 @@ orderSchema.pre('save', async function(next) {
 orderSchema.pre('save', async function(next) {
   try {
     if (this.isNew && this.orderStatus === 'Confirmed' && !this.invoiceNumber) {
-      const count = await this.constructor.countDocuments({ invoiceNumber: { $exists: true } });
-      this.invoiceNumber = `INV-${String(count + 1).padStart(6, '0')}`;
+      let invoiceNumber;
+      let isUnique = false;
+      let attempts = 0;
+      const maxAttempts = 10;
+      
+      while (!isUnique && attempts < maxAttempts) {
+        const count = await this.constructor.countDocuments({ invoiceNumber: { $exists: true } });
+        const timestamp = Date.now().toString().slice(-4);
+        invoiceNumber = `INV-${String(count + 1).padStart(4, '0')}-${timestamp}`;
+        
+        const existing = await this.constructor.findOne({ invoiceNumber });
+        if (!existing) {
+          isUnique = true;
+          this.invoiceNumber = invoiceNumber;
+        }
+        attempts++;
+      }
+      
+      if (!isUnique) {
+        this.invoiceNumber = `INV-${Date.now()}`;
+      }
     }
     next();
   } catch (error) {

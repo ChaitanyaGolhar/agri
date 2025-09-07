@@ -21,6 +21,7 @@ router.get('/', async (req, res) => {
       status = '',
       paymentStatus = '',
       customer = '',
+      search = '',
       startDate = '',
       endDate = '',
       sortBy = 'createdAt',
@@ -42,7 +43,55 @@ router.get('/', async (req, res) => {
     const sortOptions = {};
     sortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
 
-    const orders = await Order.find(query)
+    let orders;
+    
+    // Handle search functionality with customer name lookup
+    if (search) {
+      const searchRegex = new RegExp(search, 'i');
+      
+      // First, find customers that match the search term
+      const matchingCustomers = await Customer.find({
+        createdBy: req.user._id,
+        $or: [
+          { name: searchRegex },
+          { phone: searchRegex },
+          { email: searchRegex }
+        ]
+      }).select('_id');
+      
+      const customerIds = matchingCustomers.map(c => c._id);
+      
+      // Build search query
+      const searchQuery = {
+        ...query,
+        $or: [
+          { orderNumber: searchRegex },
+          { invoiceNumber: searchRegex },
+          ...(customerIds.length > 0 ? [{ customer: { $in: customerIds } }] : [])
+        ]
+      };
+      
+      orders = await Order.find(searchQuery)
+        .populate('customer', 'name phone email')
+        .populate('items.product', 'name brand packSize')
+        .sort(sortOptions)
+        .limit(limit * 1)
+        .skip((page - 1) * limit)
+        .lean();
+        
+      // Get total count for search results
+      const total = await Order.countDocuments(searchQuery);
+      
+      res.json({
+        orders,
+        totalPages: Math.ceil(total / limit),
+        currentPage: parseInt(page),
+        total
+      });
+      return;
+    }
+
+    orders = await Order.find(query)
       .populate('customer', 'name phone email')
       .populate('items.product', 'name brand packSize')
       .sort(sortOptions)
