@@ -3,6 +3,7 @@ const { body, validationResult } = require('express-validator');
 const Order = require('../models/Order');
 const Product = require('../models/Product');
 const Customer = require('../models/Customer');
+const CustomerLedger = require('../models/CustomerLedger');
 const auth = require('../middleware/auth');
 
 const router = express.Router();
@@ -156,7 +157,19 @@ router.post('/', [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { customer, items, paymentMethod = 'Cash', deliveryAddress, notes } = req.body;
+    const { 
+      customer, 
+      items, 
+      paymentMethod = 'Cash', 
+      paymentStatus = 'Paid',
+      paidAmount,
+      remainingAmount,
+      appliedPromotions = [],
+      promotionDiscountAmount = 0,
+      creditTerms,
+      deliveryAddress, 
+      notes 
+    } = req.body;
     console.log('Processing order for customer:', customer, 'with items:', items);
 
     // Verify customer exists
@@ -212,10 +225,9 @@ router.post('/', [
     }
 
     const taxAmount = 0; // Can be calculated based on GST rules
-    const discountAmount = 0; // Can be added later
-    const totalAmount = subtotal + taxAmount - discountAmount;
+    const totalAmount = subtotal + taxAmount - promotionDiscountAmount;
 
-    console.log('Order totals - Subtotal:', subtotal, 'Tax:', taxAmount, 'Discount:', discountAmount, 'Total:', totalAmount);
+    console.log('Order totals - Subtotal:', subtotal, 'Tax:', taxAmount, 'Promotion Discount:', promotionDiscountAmount, 'Total:', totalAmount);
 
     // Create order
     const orderData = {
@@ -223,9 +235,14 @@ router.post('/', [
       items: processedItems,
       subtotal,
       taxAmount,
-      discountAmount,
+      promotionDiscountAmount,
       totalAmount,
       paymentMethod,
+      paymentStatus,
+      paidAmount: paidAmount !== undefined ? paidAmount : (paymentStatus === 'Paid' ? totalAmount : 0),
+      remainingAmount: remainingAmount !== undefined ? remainingAmount : (paymentStatus === 'Paid' ? 0 : totalAmount),
+      appliedPromotions,
+      ...(creditTerms && { creditTerms }),
       deliveryAddress: deliveryAddress || customerExists.address,
       notes,
       createdBy: req.user._id
@@ -238,12 +255,15 @@ router.post('/', [
     await order.save();
     console.log('Order saved successfully with ID:', order._id);
 
-    // Update product stock
+    // Update product stock and analytics
     for (const item of processedItems) {
-      await Product.findByIdAndUpdate(
-        item.product,
-        { $inc: { stockQuantity: -item.quantity } }
-      );
+      const product = await Product.findById(item.product);
+      if (product) {
+        // Update stock
+        product.stockQuantity -= item.quantity;
+        // Update sales analytics
+        await product.updateSalesAnalytics(item.quantity, item.unitPrice);
+      }
     }
 
     // Update customer's total purchases
@@ -254,6 +274,49 @@ router.post('/', [
         $set: { lastPurchaseDate: new Date() }
       }
     );
+
+    // Create ledger entry for credit sales
+    if (paymentMethod === 'Credit' || order.isCreditSale) {
+      const currentBalance = await CustomerLedger.getCustomerBalance(customer);
+      const newBalance = currentBalance + (order.remainingAmount || totalAmount);
+      
+      // Calculate due date
+      let dueDate = null;
+      if (creditTerms && creditTerms.paymentTerms) {
+        const daysMap = {
+          'immediate': 0,
+          '7_days': 7,
+          '15_days': 15,
+          '30_days': 30,
+          '45_days': 45,
+          '60_days': 60,
+          '90_days': 90
+        };
+        const days = daysMap[creditTerms.paymentTerms] || 30;
+        dueDate = new Date(Date.now() + (days * 24 * 60 * 60 * 1000));
+      } else if (customerExists.paymentTerms > 0) {
+        dueDate = new Date(Date.now() + (customerExists.paymentTerms * 24 * 60 * 60 * 1000));
+      }
+
+      // Create ledger entry
+      const ledgerEntry = new CustomerLedger({
+        customer,
+        order: order._id,
+        transactionType: 'credit_sale',
+        amount: order.remainingAmount || totalAmount,
+        balance: newBalance,
+        description: `Credit sale - Order #${order.orderNumber}`,
+        dueDate,
+        createdBy: req.user._id
+      });
+
+      await ledgerEntry.save();
+
+      // Update customer balance
+      await Customer.findByIdAndUpdate(customer, {
+        currentBalance: newBalance
+      });
+    }
 
     // Populate the order for response
     const populatedOrder = await Order.findById(order._id)
@@ -311,6 +374,90 @@ router.put('/:id/status', [
     });
   } catch (error) {
     console.error('Update order status error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   PUT /api/orders/:id/payment
+// @desc    Update order payment status and amounts
+// @access  Private
+router.put('/:id/payment', [
+  body('paidAmount').isFloat({ min: 0 }).withMessage('Paid amount must be a positive number'),
+  body('paymentMethod').optional().isIn(['Cash', 'UPI', 'Card', 'Cheque', 'Bank Transfer'])
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { paidAmount, paymentMethod, notes } = req.body;
+    
+    const order = await Order.findOne({
+      _id: req.params.id,
+      createdBy: req.user._id
+    });
+
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    // Update payment amounts
+    order.paidAmount = paidAmount;
+    order.remainingAmount = Math.max(0, order.totalAmount - paidAmount);
+    
+    // Update payment status based on amounts
+    if (paidAmount >= order.totalAmount) {
+      order.paymentStatus = 'Paid';
+      order.remainingAmount = 0;
+    } else if (paidAmount > 0) {
+      order.paymentStatus = 'Partially Paid';
+    } else {
+      order.paymentStatus = 'Pending';
+    }
+
+    await order.save();
+
+    // If this is a credit sale, update customer ledger
+    if (order.isCreditSale && paidAmount > (order.paidAmount || 0)) {
+      const paymentAmount = paidAmount - (order.paidAmount || 0);
+      
+      // Get current customer balance
+      const currentBalance = await CustomerLedger.getCustomerBalance(order.customer);
+      const newBalance = Math.max(0, currentBalance - paymentAmount);
+
+      // Create payment ledger entry
+      const ledgerEntry = new CustomerLedger({
+        customer: order.customer,
+        order: order._id,
+        transactionType: 'payment',
+        amount: -paymentAmount,
+        balance: newBalance,
+        description: `Payment for Order #${order.orderNumber}`,
+        paymentMethod: paymentMethod || 'Cash',
+        paidDate: new Date(),
+        notes,
+        createdBy: req.user._id
+      });
+
+      await ledgerEntry.save();
+
+      // Update customer balance
+      await Customer.findByIdAndUpdate(order.customer, {
+        currentBalance: newBalance
+      });
+    }
+
+    const populatedOrder = await Order.findById(order._id)
+      .populate('customer', 'name phone email')
+      .populate('items.product', 'name brand packSize');
+
+    res.json({
+      message: 'Payment updated successfully',
+      order: populatedOrder
+    });
+  } catch (error) {
+    console.error('Update payment error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

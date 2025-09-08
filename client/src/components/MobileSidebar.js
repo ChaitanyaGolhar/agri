@@ -9,18 +9,26 @@ import {
   FileText,
   Settings,
   BarChart3,
+  Tag,
+  CreditCard,
 } from 'lucide-react';
-
-const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Customers', href: '/customers', icon: Users },
-  { name: 'Products', href: '/products', icon: Package },
-  { name: 'Orders', href: '/orders', icon: FileText },
-  { name: 'Cart', href: '/cart', icon: ShoppingCart },
-  { name: 'Profile', href: '/profile', icon: Settings },
-];
+import { useLanguage } from '../contexts/LanguageContext';
+import LanguageSwitcher from './LanguageSwitcher';
 
 const MobileSidebar = ({ isOpen, onClose }) => {
+  const { t } = useLanguage();
+
+  const navigation = [
+    { name: t('navigation.dashboard'), href: '/dashboard', icon: LayoutDashboard },
+    { name: t('navigation.customers'), href: '/customers', icon: Users },
+    { name: t('navigation.products'), href: '/products', icon: Package },
+    { name: t('navigation.orders'), href: '/orders', icon: FileText },
+    { name: t('navigation.cart'), href: '/cart', icon: ShoppingCart },
+    { name: t('navigation.analytics'), href: '/analytics', icon: BarChart3 },
+    { name: t('navigation.promotions'), href: '/promotions', icon: Tag },
+    { name: t('navigation.ledger'), href: '/ledger', icon: CreditCard },
+    { name: t('navigation.profile'), href: '/profile', icon: Settings },
+  ];
   if (!isOpen) return null;
 
   return (
@@ -76,6 +84,11 @@ const MobileSidebar = ({ isOpen, onClose }) => {
                 </li>
               ))}
             </ul>
+            
+            {/* Language Switcher */}
+            <div className="mt-6 px-2">
+              <LanguageSwitcher />
+            </div>
           </nav>
         </div>
       </div>

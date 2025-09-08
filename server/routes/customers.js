@@ -159,24 +159,58 @@ router.put('/:id', [
 });
 
 // @route   DELETE /api/customers/:id
-// @desc    Delete customer (soft delete)
+// @desc    Delete customer (hard delete if no orders, soft delete otherwise)
 // @access  Private
 router.delete('/:id', async (req, res) => {
   try {
-    const customer = await Customer.findOneAndUpdate(
-      { _id: req.params.id, createdBy: req.user._id },
-      { isActive: false },
-      { new: true }
-    );
-
-    if (!customer) {
-      return res.status(404).json({ message: 'Customer not found' });
-    }
-
-    res.json({
-      message: 'Customer deactivated successfully',
-      customer
+    const customerId = req.params.id;
+    
+    // Check if customer has any orders
+    const orderCount = await Order.countDocuments({
+      customer: customerId,
+      createdBy: req.user._id
     });
+
+    if (orderCount > 0) {
+      // Soft delete if customer has orders (for data integrity)
+      const customer = await Customer.findOneAndUpdate(
+        { _id: customerId, createdBy: req.user._id },
+        { isActive: false },
+        { new: true }
+      );
+
+      if (!customer) {
+        return res.status(404).json({ message: 'Customer not found' });
+      }
+
+      res.json({
+        message: 'Customer deactivated successfully (has existing orders)',
+        customer,
+        type: 'soft_delete'
+      });
+    } else {
+      // Hard delete if no orders exist
+      const customer = await Customer.findOneAndDelete({
+        _id: customerId,
+        createdBy: req.user._id
+      });
+
+      if (!customer) {
+        return res.status(404).json({ message: 'Customer not found' });
+      }
+
+      // Also delete any ledger entries for this customer
+      await CustomerLedger.deleteMany({
+        customer: customerId,
+        createdBy: req.user._id
+      });
+
+      res.json({
+        message: 'Customer deleted permanently',
+        customer,
+        type: 'hard_delete'
+      });
+    }
   } catch (error) {
     console.error('Delete customer error:', error);
     res.status(500).json({ message: 'Server error' });

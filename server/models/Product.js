@@ -75,6 +75,46 @@ const productSchema = new mongoose.Schema({
     contact: String,
     address: String
   },
+  // Analytics fields
+  totalSold: {
+    type: Number,
+    default: 0
+  },
+  totalRevenue: {
+    type: Number,
+    default: 0
+  },
+  lastSoldDate: {
+    type: Date
+  },
+  averageSalePrice: {
+    type: Number,
+    default: 0
+  },
+  // Inventory management
+  reorderLevel: {
+    type: Number,
+    default: 0
+  },
+  maxStockLevel: {
+    type: Number,
+    default: 1000
+  },
+  stockTurnoverRate: {
+    type: Number,
+    default: 0
+  },
+  lastRestockDate: {
+    type: Date
+  },
+  costPrice: {
+    type: Number,
+    min: 0
+  },
+  profitMargin: {
+    type: Number,
+    default: 0
+  },
   isActive: {
     type: Boolean,
     default: true
@@ -104,5 +144,48 @@ productSchema.virtual('isLowStock').get(function() {
 productSchema.virtual('formattedPrice').get(function() {
   return `₹${this.price.toFixed(2)}`;
 });
+
+// Method to update sales analytics
+productSchema.methods.updateSalesAnalytics = function(quantity, salePrice) {
+  this.totalSold = (this.totalSold || 0) + quantity;
+  this.totalRevenue = (this.totalRevenue || 0) + (quantity * salePrice);
+  this.lastSoldDate = new Date();
+  this.averageSalePrice = this.totalRevenue / this.totalSold;
+  
+  // Update stock turnover rate (sales per stock)
+  if (this.stockQuantity > 0) {
+    this.stockTurnoverRate = this.totalSold / (this.stockQuantity + quantity);
+  }
+  
+  return this.save();
+};
+
+// Method to check if reorder is needed
+productSchema.methods.needsReorder = function() {
+  return this.stockQuantity <= (this.reorderLevel || this.minimumStock);
+};
+
+// Method to check if overstocked
+productSchema.methods.isOverstocked = function() {
+  return this.stockQuantity >= this.maxStockLevel;
+};
+
+// Static method to get low stock products
+productSchema.statics.getLowStockProducts = function(userId) {
+  return this.find({
+    createdBy: userId,
+    isActive: true,
+    $expr: { $lte: ['$stockQuantity', '$minimumStock'] }
+  }).sort({ stockQuantity: 1 });
+};
+
+// Static method to get overstock products
+productSchema.statics.getOverstockProducts = function(userId) {
+  return this.find({
+    createdBy: userId,
+    isActive: true,
+    $expr: { $gte: ['$stockQuantity', '$maxStockLevel'] }
+  }).sort({ stockQuantity: -1 });
+};
 
 module.exports = mongoose.model('Product', productSchema);

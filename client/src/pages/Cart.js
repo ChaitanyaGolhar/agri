@@ -1,18 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { api } from '../utils/api';
-import { Plus, Minus, Trash2, ShoppingCart, CreditCard, Printer, Download, Search } from 'lucide-react';
+import { Plus, Minus, Trash2, ShoppingCart, CreditCard, Printer, Download, Search, Tag, Percent } from 'lucide-react';
 import LoadingSpinner from '../components/LoadingSpinner';
 import toast from 'react-hot-toast';
 import { printReceipt, printReceiptToPDF } from '../utils/receiptPrinter';
 import { Link } from 'react-router-dom';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const Cart = () => {
+    const { t, formatCurrency } = useLanguage();
     const [selectedCustomer, setSelectedCustomer] = useState('');
     const [paymentMethod, setPaymentMethod] = useState('Cash');
     const [notes, setNotes] = useState('');
     const [createdOrder, setCreatedOrder] = useState(null);
     const [productSearch, setProductSearch] = useState('');
+    const [promotionCode, setPromotionCode] = useState('');
+    const [appliedPromotions, setAppliedPromotions] = useState([]);
+    const [creditTerms, setCreditTerms] = useState('immediate');
+    const [paymentStatus, setPaymentStatus] = useState('Paid');
+    const [paidAmount, setPaidAmount] = useState(0);
     const queryClient = useQueryClient();
 
     const [cartItems, setCartItems] = useState([]);
@@ -25,6 +32,23 @@ const Cart = () => {
     const { data: products, isLoading: productsLoading } = useQuery(
         'products-for-cart',
         () => api.get('/products?limit=1000').then(res => res.data.products)
+    );
+
+    const validatePromotionMutation = useMutation(
+        (code) => api.post('/promotions/validate', { code, cartItems, customer: selectedCustomer }),
+        {
+            onSuccess: (response) => {
+                const promotion = response.data.promotion;
+                if (!appliedPromotions.find(p => p._id === promotion._id)) {
+                    setAppliedPromotions([...appliedPromotions, promotion]);
+                    toast.success(`Promotion "${promotion.name}" applied successfully!`);
+                }
+                setPromotionCode('');
+            },
+            onError: (error) => {
+                toast.error(error.response?.data?.message || 'Invalid promotion code');
+            },
+        }
     );
 
     const createOrderMutation = useMutation(
@@ -90,7 +114,34 @@ const Cart = () => {
 
     const subtotal = cartItems.reduce((sum, item) => sum + item.totalPrice, 0);
     const taxAmount = 0; // Placeholder for tax calculation
-    const totalAmount = subtotal + taxAmount;
+    
+    // Calculate promotion discounts
+    const calculatePromotionDiscount = () => {
+        return appliedPromotions.reduce((total, promotion) => {
+            let discount = 0;
+            if (promotion.discountType === 'percentage') {
+                discount = (subtotal * promotion.discountValue) / 100;
+                if (promotion.maxDiscountAmount) {
+                    discount = Math.min(discount, promotion.maxDiscountAmount);
+                }
+            } else if (promotion.discountType === 'fixed_amount') {
+                discount = promotion.discountValue;
+            }
+            return total + discount;
+        }, 0);
+    };
+    
+    const promotionDiscountAmount = calculatePromotionDiscount();
+    const totalAmount = subtotal + taxAmount - promotionDiscountAmount;
+
+    // Auto-set paid amount when payment status or total changes
+    useEffect(() => {
+        if (paymentStatus === 'Paid') {
+            setPaidAmount(totalAmount);
+        } else if (paymentStatus === 'Pending') {
+            setPaidAmount(0);
+        }
+    }, [paymentStatus, totalAmount]);
 
     const handleCheckout = () => {
         if (cartItems.length === 0) {
@@ -110,7 +161,26 @@ const Cart = () => {
                 unitPrice: item.unitPrice,
                 totalPrice: item.totalPrice
             })),
+            subtotal,
+            taxAmount,
+            promotionDiscountAmount,
+            totalAmount,
             paymentMethod,
+            appliedPromotions: appliedPromotions.map(promo => ({
+                promotion: promo._id,
+                discountAmount: promo.discountType === 'percentage' 
+                    ? Math.min((subtotal * promo.discountValue) / 100, promo.maxDiscountAmount || Infinity)
+                    : promo.discountValue,
+                discountType: promo.discountType
+            })),
+            ...(paymentMethod === 'Credit' && {
+                creditTerms: {
+                    paymentTerms: creditTerms
+                }
+            }),
+            paymentStatus,
+            paidAmount: paymentStatus === 'Pending' ? 0 : paidAmount,
+            remainingAmount: paymentStatus === 'Pending' ? totalAmount : Math.max(0, totalAmount - paidAmount),
             notes
         };
         createOrderMutation.mutate(orderData);
@@ -276,21 +346,127 @@ const Cart = () => {
                                     ))}
                                 </select>
                             </div>
+                            
+                            {/* Promotion Code Section */}
+                            <div>
+                                <label className="label">Promotion Code</label>
+                                <div className="flex space-x-2">
+                                    <input
+                                        type="text"
+                                        value={promotionCode}
+                                        onChange={(e) => setPromotionCode(e.target.value)}
+                                        className="input flex-1"
+                                        placeholder="Enter promo code"
+                                    />
+                                    <button
+                                        onClick={() => validatePromotionMutation.mutate(promotionCode)}
+                                        disabled={!promotionCode || validatePromotionMutation.isLoading}
+                                        className="btn btn-outline btn-sm"
+                                    >
+                                        <Tag className="h-4 w-4" />
+                                    </button>
+                                </div>
+                                
+                                {/* Applied Promotions */}
+                                {appliedPromotions.length > 0 && (
+                                    <div className="mt-2 space-y-1">
+                                        {appliedPromotions.map((promo) => (
+                                            <div key={promo._id} className="flex items-center justify-between bg-green-50 dark:bg-green-900/20 p-2 rounded text-sm">
+                                                <span className="text-green-700 dark:text-green-300">{promo.name}</span>
+                                                <button
+                                                    onClick={() => setAppliedPromotions(appliedPromotions.filter(p => p._id !== promo._id))}
+                                                    className="text-green-600 hover:text-green-800"
+                                                >
+                                                    ×
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
                             <div>
                                 <label className="label">Payment Method</label>
                                 <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} className="input w-full">
                                     <option>Cash</option><option>UPI</option><option>Card</option><option>Cheque</option><option>Credit</option>
                                 </select>
                             </div>
+
+                            {/* Payment Status */}
+                            <div>
+                                <label className="label">Payment Status</label>
+                                <select value={paymentStatus} onChange={(e) => setPaymentStatus(e.target.value)} className="input w-full">
+                                    <option value="Pending">Pending</option>
+                                    <option value="Paid">Paid</option>
+                                    <option value="Partially Paid">Partially Paid</option>
+                                </select>
+                            </div>
+
+                            {/* Payment Amount (shown for Paid and Partially Paid) */}
+                            {(paymentStatus === 'Paid' || paymentStatus === 'Partially Paid') && (
+                                <div>
+                                    <label className="label">
+                                        {paymentStatus === 'Paid' ? 'Paid Amount' : 'Amount Received'}
+                                    </label>
+                                    <input
+                                        type="number"
+                                        value={paidAmount}
+                                        onChange={(e) => setPaidAmount(parseFloat(e.target.value) || 0)}
+                                        className="input w-full"
+                                        placeholder="Enter amount"
+                                        max={totalAmount}
+                                        min={0}
+                                        step="0.01"
+                                    />
+                                    {paymentStatus === 'Partially Paid' && (
+                                        <p className="text-sm text-gray-500 mt-1">
+                                            Remaining: {formatCurrency(Math.max(0, totalAmount - paidAmount))}
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Credit Terms (shown only when Credit is selected) */}
+                            {paymentMethod === 'Credit' && (
+                                <div>
+                                    <label className="label">Credit Terms</label>
+                                    <select value={creditTerms} onChange={(e) => setCreditTerms(e.target.value)} className="input w-full">
+                                        <option value="immediate">Immediate</option>
+                                        <option value="7_days">7 Days</option>
+                                        <option value="15_days">15 Days</option>
+                                        <option value="30_days">30 Days</option>
+                                        <option value="45_days">45 Days</option>
+                                        <option value="60_days">60 Days</option>
+                                        <option value="90_days">90 Days</option>
+                                    </select>
+                                </div>
+                            )}
+                            
                             <div>
                                 <label className="label">Notes</label>
                                 <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className="input w-full" placeholder="Add order notes..."/>
                             </div>
+                            
                             <div className="border-t dark:border-gray-700 pt-4 space-y-2">
-                                <div className="flex justify-between text-sm text-gray-500 dark:text-gray-400"><span>Subtotal</span><span className="font-medium text-gray-900 dark:text-gray-200">₹{subtotal.toLocaleString()}</span></div>
-                                <div className="flex justify-between text-sm text-gray-500 dark:text-gray-400"><span>Tax</span><span className="font-medium text-gray-900 dark:text-gray-200">₹{taxAmount.toLocaleString()}</span></div>
+                                <div className="flex justify-between text-sm text-gray-500 dark:text-gray-400">
+                                    <span>Subtotal</span>
+                                    <span className="font-medium text-gray-900 dark:text-gray-200">{formatCurrency(subtotal)}</span>
+                                </div>
+                                {promotionDiscountAmount > 0 && (
+                                    <div className="flex justify-between text-sm text-green-600 dark:text-green-400">
+                                        <span>Promotion Discount</span>
+                                        <span className="font-medium">-{formatCurrency(promotionDiscountAmount)}</span>
+                                    </div>
+                                )}
+                                <div className="flex justify-between text-sm text-gray-500 dark:text-gray-400">
+                                    <span>Tax</span>
+                                    <span className="font-medium text-gray-900 dark:text-gray-200">{formatCurrency(taxAmount)}</span>
+                                </div>
                                 <div className="border-t dark:border-gray-700 pt-2">
-                                    <div className="flex justify-between text-base font-medium text-gray-900 dark:text-white"><span>Total</span><span>₹{totalAmount.toLocaleString()}</span></div>
+                                    <div className="flex justify-between text-base font-medium text-gray-900 dark:text-white">
+                                        <span>Total</span>
+                                        <span>{formatCurrency(totalAmount)}</span>
+                                    </div>
                                 </div>
                             </div>
                             <button onClick={handleCheckout} disabled={cartItems.length === 0 || !selectedCustomer || createOrderMutation.isLoading} className="w-full btn btn-primary">

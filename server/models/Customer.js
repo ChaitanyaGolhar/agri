@@ -4,21 +4,20 @@ const customerSchema = new mongoose.Schema({
   name: {
     type: String,
     required: true,
-    trim: true
-  },
-  email: {
-    type: String,
     trim: true,
-    lowercase: true
+    maxlength: 100
   },
   phone: {
     type: String,
     required: true,
-    trim: true
+    trim: true,
+    maxlength: 15
   },
-  alternatePhone: {
+  email: {
     type: String,
-    trim: true
+    trim: true,
+    lowercase: true,
+    maxlength: 100
   },
   address: {
     street: String,
@@ -29,35 +28,67 @@ const customerSchema = new mongoose.Schema({
   },
   businessType: {
     type: String,
-    enum: ['Farmer', 'Retailer', 'Wholesaler', 'Cooperative', 'Other'],
-    default: 'Farmer'
+    enum: ['Retailer', 'Wholesaler', 'Farmer', 'Distributor', 'Individual'],
+    default: 'Individual'
   },
-  cropTypes: [{
+  gstNumber: {
     type: String,
-    enum: ['Rice', 'Wheat', 'Cotton', 'Sugarcane', 'Vegetables', 'Fruits', 'Spices', 'Other']
-  }],
-  creditLimit: {
-    type: Number,
-    default: 0
-  },
-  creditUsed: {
-    type: Number,
-    default: 0
+    trim: true,
+    uppercase: true,
+    maxlength: 15
   },
   totalPurchases: {
     type: Number,
-    default: 0
+    default: 0,
+    min: 0
   },
   lastPurchaseDate: {
     type: Date
   },
-  notes: {
+  customerGroup: {
     type: String,
-    maxlength: 500
+    enum: ['new', 'regular', 'vip', 'wholesale'],
+    default: 'new'
+  },
+  creditLimit: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  currentBalance: {
+    type: Number,
+    default: 0
+  },
+  paymentTerms: {
+    type: Number, // Days
+    default: 0
+  },
+  orderCount: {
+    type: Number,
+    default: 0
+  },
+  averageOrderValue: {
+    type: Number,
+    default: 0
+  },
+  lastOrderDate: {
+    type: Date
+  },
+  firstOrderDate: {
+    type: Date
+  },
+  preferredLanguage: {
+    type: String,
+    enum: ['en', 'mr'],
+    default: 'en'
   },
   isActive: {
     type: Boolean,
     default: true
+  },
+  notes: {
+    type: String,
+    maxlength: 500
   },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,

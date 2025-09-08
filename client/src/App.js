@@ -2,6 +2,7 @@ import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { LanguageProvider } from './contexts/LanguageContext';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -16,6 +17,11 @@ import Orders from './pages/Orders';
 import OrderDetail from './pages/OrderDetail';
 import Cart from './pages/Cart';
 import Profile from './pages/Profile';
+import Analytics from './pages/Analytics';
+import Promotions from './pages/Promotions';
+import PromotionForm from './pages/PromotionForm';
+import PromotionDetail from './pages/PromotionDetail';
+import Ledger from './pages/Ledger';
 import LoadingSpinner from './components/LoadingSpinner';
 import ErrorBoundary from './components/ErrorBoundary';
 
@@ -79,6 +85,12 @@ function AppRoutes() {
         <Route path="orders" element={<Orders />} />
         <Route path="orders/:id" element={<OrderDetail />} />
         <Route path="cart" element={<Cart />} />
+        <Route path="analytics" element={<Analytics />} />
+        <Route path="promotions" element={<Promotions />} />
+        <Route path="promotions/new" element={<PromotionForm />} />
+        <Route path="promotions/:id" element={<PromotionDetail />} />
+        <Route path="promotions/:id/edit" element={<PromotionForm />} />
+        <Route path="ledger" element={<Ledger />} />
         <Route path="profile" element={<Profile />} />
       </Route>
       <Route path="*" element={<Navigate to="/login" replace />} />
@@ -90,9 +102,11 @@ function App() {
   return (
     <ErrorBoundary>
       <ThemeProvider>
-        <AuthProvider>
-          <AppRoutes />
-        </AuthProvider>
+        <LanguageProvider>
+          <AuthProvider>
+            <AppRoutes />
+          </AuthProvider>
+        </LanguageProvider>
       </ThemeProvider>
     </ErrorBoundary>
   );

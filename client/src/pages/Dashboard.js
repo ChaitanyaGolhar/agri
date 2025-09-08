@@ -34,12 +34,47 @@ const COLORS = ['#0f172a', '#3b82f6', '#a855f7', '#f97316', '#14b8a6'];
 const Dashboard = () => {
   const { isDark } = useTheme(); 
   
-  // Data fetching hooks remain unchanged
-  const { data: overview, isLoading: overviewLoading } = useQuery('dashboard-overview', () => api.get('/dashboard/overview').then(res => res.data));
-  const { data: salesData, isLoading: salesLoading } = useQuery('dashboard-sales-chart', () => api.get('/dashboard/sales-chart?period=30&groupBy=day').then(res => res.data));
-  const { data: topProducts, isLoading: productsLoading } = useQuery('dashboard-top-products', () => api.get('/dashboard/top-products?period=30&limit=5').then(res => res.data));
-  const { data: lowStockAlerts, isLoading: alertsLoading } = useQuery('dashboard-low-stock-alerts', () => api.get('/dashboard/low-stock-alerts').then(res => res.data));
-  const { data: recentOrders, isLoading: ordersLoading } = useQuery('dashboard-recent-orders', () => api.get('/dashboard/recent-orders?limit=5').then(res => res.data));
+  // Data fetching hooks with automatic refresh
+  const { data: overview, isLoading: overviewLoading } = useQuery(
+    'dashboard-overview', 
+    () => api.get('/dashboard/overview').then(res => res.data),
+    { 
+      refetchInterval: 300000, // Refresh every 5 minutes
+      staleTime: 240000 // Consider data stale after 4 minutes
+    }
+  );
+  const { data: salesData, isLoading: salesLoading } = useQuery(
+    'dashboard-sales-chart', 
+    () => api.get('/dashboard/sales-chart?period=30&groupBy=day').then(res => res.data),
+    { 
+      refetchInterval: 300000,
+      staleTime: 240000
+    }
+  );
+  const { data: topProducts, isLoading: productsLoading } = useQuery(
+    'dashboard-top-products', 
+    () => api.get('/dashboard/top-products?period=30&limit=5').then(res => res.data),
+    { 
+      refetchInterval: 300000,
+      staleTime: 240000
+    }
+  );
+  const { data: lowStockAlerts, isLoading: alertsLoading } = useQuery(
+    'dashboard-low-stock-alerts', 
+    () => api.get('/dashboard/low-stock-alerts').then(res => res.data),
+    { 
+      refetchInterval: 180000, // Refresh every 3 minutes for stock alerts
+      staleTime: 120000
+    }
+  );
+  const { data: recentOrders, isLoading: ordersLoading } = useQuery(
+    'dashboard-recent-orders', 
+    () => api.get('/dashboard/recent-orders?limit=5').then(res => res.data),
+    { 
+      refetchInterval: 120000, // Refresh every 2 minutes for recent orders
+      staleTime: 60000
+    }
+  );
 
   if (overviewLoading) {
     return ( <div className="flex items-center justify-center h-screen"><LoadingSpinner size="lg" /></div> );

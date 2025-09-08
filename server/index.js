@@ -10,6 +10,9 @@ const customerRoutes = require('./routes/customers');
 const productRoutes = require('./routes/products');
 const orderRoutes = require('./routes/orders');
 const dashboardRoutes = require('./routes/dashboard');
+const analyticsRoutes = require('./routes/analytics');
+const promotionsRoutes = require('./routes/promotions');
+const ledgerRoutes = require('./routes/ledger');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -52,6 +55,9 @@ app.use('/api/customers', customerRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/analytics', analyticsRoutes);
+app.use('/api/promotions', promotionsRoutes);
+app.use('/api/ledger', ledgerRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

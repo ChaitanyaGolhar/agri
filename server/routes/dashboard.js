@@ -20,34 +20,29 @@ router.get('/overview', async (req, res) => {
 
     // Total customers
     const totalCustomers = await Customer.countDocuments({
-      createdBy: req.user._id,
-      isActive: true
+      createdBy: req.user._id
     });
 
     // New customers this period
     const newCustomers = await Customer.countDocuments({
       createdBy: req.user._id,
-      isActive: true,
       createdAt: { $gte: startDate }
     });
 
     // Total products
     const totalProducts = await Product.countDocuments({
-      createdBy: req.user._id,
-      isActive: true
+      createdBy: req.user._id
     });
 
     // Low stock products
     const lowStockProducts = await Product.countDocuments({
       createdBy: req.user._id,
-      isActive: true,
       $expr: { $lte: ['$stockQuantity', '$minimumStock'] }
     });
 
     // Out of stock products
     const outOfStockProducts = await Product.countDocuments({
       createdBy: req.user._id,
-      isActive: true,
       stockQuantity: 0
     });
 
